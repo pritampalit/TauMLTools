@@ -28,6 +28,15 @@ The main change is related to the specifying additional function in config files
 `selector=TauJetTag` - selects events with genJet or recoJet or genLepton  
 
 
+### Updated condor job submission (13/12/2025)
+
+```
+chmod +x submit_condor_ntuplegen_v2.sh
+./submit_condor_ntuplegen_v2.sh filelist.txt
+```
+`filelist.txt` will contain the dataset files. Change `OUTDIR=/eos/user/p/ppalit2/Exotic/displacetauml/promtaugen_condor_ntuples/test_condorjob` in `run_job_ntuplegen_v2.sh`. 
+
+
 ### Merging the ntuples
 
 #### Spectrum creation
