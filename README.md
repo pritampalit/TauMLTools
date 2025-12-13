@@ -6,6 +6,7 @@ Additional documentation on parallel developments that are sunducted under this 
 
 - [Adversarial Machine Learning](Documentation/adversarial.md)
 - [Displaced Tau tagging](Documentation/displaced.md)
+- [Displaced Tau Multiclass tagging](Documentation/displaced.md)
 
 ## Introduction
 
