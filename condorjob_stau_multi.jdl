@@ -1,0 +1,36 @@
+Universe        = vanilla
+Executable      = run_job_multi.sh
+ShouldTransferFiles = YES
+WhenToTransferOutput = ON_EXIT
+#Transfer_Input_Files = ../Core/run_cxx, ./Preprocessing/CreateSpectralHists.cxx, run_job.sh, env_setup.sh
+#Transfer_Output_Files = $(output), $(output_entries)
+#Transfer_Input_Files= /afs/cern.ch/user/p/ppalit/.globus
+#Environment     = "X509_USER_PROXY=$(PWD)/x509up_u104629"
+
+x509userproxy = $ENV(X509_USER_PROXY)
+use_x509userproxy = True
+
+# Log, output, and error files
+Log             = log/job.log.$(Cluster)-$(Process)
+Output          = log/job.out.$(Cluster)-$(Process)
+Error           = log/job.err.$(Cluster)-$(Process)
+
+#stream_output = True
+#stream_error = True
+
+# Resource requests
+#RequestCpus     = 4
+#RequestMemory   = 
+#RequestDisk     = 2 GB
+
+#+MaxRuntime     = 86400
+
+# Ensure worker nodes have the required software
+#+MaxRuntime = 259200
+#Requirements    = (HAS_CVMFS_cms_cern_ch == True)
++JobFlavour = "workday"
+
+# Arguments will be passed via command line
+Arguments       = "$(input_dir) $(output_file) $(output_entries) $(file_number)"
+
+Queue

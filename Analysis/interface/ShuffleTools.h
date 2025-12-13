@@ -1,7 +1,10 @@
 #include <fstream>
 #include <random>
 #include <string>
+#include <cstdio>
+#include <cstdlib>
 #include <iostream>
+#include <memory>
 #include <boost/algorithm/string.hpp>
 #include <boost/regex.hpp>
 #include <boost/foreach.hpp>
@@ -14,6 +17,25 @@
 #include "TauMLTools/Analysis/interface/TauTuple.h"
 #include "TauMLTools/Analysis/interface/TauSelection.h"
 #include "TauMLTools/Core/interface/exception.h"
+
+void runCommand(const std::string& command) {
+    std::cout << "Executing: " << command << std::endl;
+
+    //std::string fullCommand = command + " 2>&1";
+    FILE* pipe = popen(command.c_str(), "r");
+    if (!pipe) {
+        std::cerr << "Error: Failed to run command." << std::endl;
+        return;
+    }
+    char buffer[128];
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        std::cout << buffer;
+    }
+    int exitCode = pclose(pipe);
+    if (exitCode != 0) {
+        std::cerr << "Command failed with exit code: " << exitCode << std::endl;
+    }
+}
 
 
 namespace analysis {
@@ -44,6 +66,9 @@ void sumBasedSplit(const std::vector<size_t>& files_entries, const size_t job_id
     step = step + (std::accumulate(files_entries.begin(), files_entries.end(), 0) % n_job);
     point_exit = std::make_pair(files_entries.size()-1, files_entries[files_entries.size()-1]-1);
   }
+
+  std::cout << "Processing files from index " << point_entry.first
+          << " to " << point_exit.first << std::endl;
 };
 
 
@@ -76,12 +101,19 @@ struct EntryDesc {
         using boost::regex_match;
         using boost::filesystem::is_regular_file;
 
+
+
+
         name = item.name;
         name_hash = std::hash<std::string>{}(name);
 
         const std::string dir_pattern_str  = item.Get<std::string>("dir");
-        const std::string file_pattern_str = item.Get<std::string>("file");
-        const std::string tau_types_str    = item.Get<std::string>("types");
+        const std::string file_pattern_str = item.Get<std::string>("file");   
+
+	//std::cout << "debug 0" << std::endl;
+	const std::string tau_types_str    = item.Get<std::string>("types");
+
+
 
         if (item.Has("mix_p"))
             mixing_coefficient = item.Get<double>("mix_p");
@@ -89,7 +121,12 @@ struct EntryDesc {
         const regex dir_pattern (dir_pattern_str );
         const regex file_pattern(file_pattern_str);
 
+
+	//std::cout << "debug 1" << std::endl;
         tau_types = SplitValueListT<ObjectType, std::set<ObjectType>>(tau_types_str, false, ",");
+	//tau_types = SplitValueList(tau_types_str, false, ",");
+
+	//std::cout << "debug 2" << std::endl;
 
         std::ifstream input_files (input_paths, std::ifstream::in);
         if (!input_files){
@@ -111,25 +148,53 @@ struct EntryDesc {
         while(std::getline(input_files, ifile)){
 
           size_t n_entries = analysis::Parse<double>(ifile.substr(ifile.rfind(" ")));
-
+	  //std::cout<< "n_entries : " << n_entries << std::endl;
           file_name = ifile.substr(ifile.find_last_of("/") + 1,
                                    ifile.rfind(" ")-ifile.find_last_of("/")-1);
-          dir_name = ifile.substr(0,ifile.find_last_of("/"));
-          dir_name  = dir_name.substr(dir_name.find_last_of("/")+1);
+	  //std::cout<< "file_name : " << file_name << std::endl;
+          //##dir_name = ifile.substr(0,ifile.find_last_of("/"));
 
-          if(!regex_match(dir_name , dir_pattern )) continue;
-          if(!regex_match(file_name, file_pattern)) continue;
+	  dir_name = ifile.substr(0,ifile.find_last_of("/"));
+          ////dir_name  = dir_name.substr(dir_name.find_last_of("/")+1);
+	  
+
+	  
+	  
+	  string spectrum_dir_name = ifile;
+	  for (int i = 0; i < 4; ++i) {
+	    spectrum_dir_name = spectrum_dir_name.substr(0, spectrum_dir_name.find_last_of("/"));
+	  }
+	  spectrum_dir_name = spectrum_dir_name.substr(spectrum_dir_name.find_last_of("/") + 1);
+	  
+	  //std::cout<< "dir_name : " << dir_name << std::endl;
+          //dir_name  = "/eos/user/p/ppalit3/Exotic/displacedtauml/" + dir_name.substr(dir_name.find_last_of("/")+1);
+	  //////dir_name  = "/eos/user/p/ppalit2/Exotic/displacetauml/distauntuples/" + dir_name.substr(dir_name.find_last_of("/")+1);
+
+	  std::cout << "Checking file: " << ifile << std::endl;
+	  std::cout << "nentries : " << n_entries << "\t" << "file name : " << file_name << "\t" << "dir_name : " << dir_name << "\t" << "dir_pattern : " << dir_pattern << "\t" << "spectrum_dir_name : " << spectrum_dir_name << std::endl;
+
+          if(!regex_match(dir_name , dir_pattern )){
+	    std::cout << "Skipping file due to dir_name mismatch." << std::endl;
+	    continue;
+	  }
+          if(!regex_match(file_name, file_pattern)){
+	    std::cout << "Skipping file due to file_name mismatch." << std::endl;
+	    continue;
+	  }
 
           is_matching = true; //at least one file is found
 
           file_path = prefix + "/" + dir_name + "/" + file_name;
+	  //file_path = dir_name + "/" + file_name;
+ 
           data_files.push_back(file_path);
           files_entries.push_back(n_entries);
           data_set_names.push_back(dir_name);
           data_set_names_hashes.push_back(std::hash<std::string>{}(dir_name));
 
           if(!refill_spectrum){
-            spectrum_file = base_spectrum_dir + "/" + dir_name + ".root";
+            spectrum_file = base_spectrum_dir + "/" + spectrum_dir_name + ".root";
+	    //spectrum_file = base_spectrum_dir + "/" + "spectrum_file.root";
             spectrum_files.insert(spectrum_file);
           }
         }
@@ -160,16 +225,16 @@ struct EntryDesc {
     }
 };
 
-
-template <typename ObjectType>
-struct SourceDesc {
+  
+  template <typename ObjectType>
+  struct SourceDesc {
     using Tau = tau_tuple::Tau;
     using TauTuple = tau_tuple::TauTuple;
 
-    SourceDesc(const std::string& _name, const size_t _total_entries, const ULong64_t  _group_hash,
-               const std::vector<std::string>& _file_names, const std::vector<ULong64_t>& _name_hashes,
-               const std::pair<size_t, size_t> _point_entry, const std::pair<size_t, size_t> _point_exit,
-               const std::set<ObjectType>& _tautypes, const std::set<std::string> _disabled_branches = {},
+  SourceDesc(const std::string& _name, const size_t _total_entries, const ULong64_t  _group_hash,
+	     const std::vector<std::string>& _file_names, const std::vector<ULong64_t>& _name_hashes,
+	     const std::pair<size_t, size_t> _point_entry, const std::pair<size_t, size_t> _point_exit,
+	     const std::set<ObjectType>& _tautypes, const std::set<std::string> _disabled_branches = {},
                const std::set<std::string> _enabled_branches = {}) :
 
         name(_name), total_entries(_total_entries), group_hash(_group_hash), file_names(_file_names), dataset_hash_arr(_name_hashes),
@@ -186,66 +251,109 @@ struct SourceDesc {
     }
 
     SourceDesc(const SourceDesc&) = delete;
-    SourceDesc& operator=(const SourceDesc&) = delete;
+  SourceDesc& operator=(const SourceDesc&) = delete;
+  
+    
+  bool DoNextStep()
+  {
+    std::cout << "Final file list used in processing: " << std::endl;
+    for (const auto& file : file_names) std::cout << file << std::endl;
 
-    bool DoNextStep()
-    {
-      do {
-        if(current_file_index == point_exit.first && current_entry > entries_end ) return false;
-        while(!current_file_index || current_entry > entries_end) {
-            if(!current_file_index)
-                current_file_index = point_entry.first;
-            else
-                ++(*current_file_index);
-            if(*current_file_index >= file_names.size())
-                throw exception("File index: %1% is out of file_names array '%2%', DataGroup: '%3%'")
-                      % current_file_index.value() % file_names.size() % name;
-            const std::string& file_name = file_names.at(*current_file_index);
-            std::cout << "Opening: " << name << " " << file_name << std::endl;
-            dataset_hash = dataset_hash_arr.at(*current_file_index);
-            current_tuple.reset();
-            if(current_file) current_file->Close();
-            current_file = root_ext::OpenRootFile(file_name);
-            current_tuple = std::make_shared<TauTuple>("taus", current_file.get(), true, disabled_branches, enabled_branches);
-            entries_file = current_tuple->GetEntries();
-            current_entry = current_file_index == point_entry.first ? point_entry.second : 0;
-            entries_end = current_file_index == point_exit.first ? point_exit.second : entries_file - 1;
-            if(!entries_file)
-              throw exception("Root file %1% is empty.") % file_name;
-        }
-        current_tuple->GetEntry(current_entry++);
-        ++total_n_processed;
+    do {
 
-        current_tau_type = std::nullopt;
-        current_tau_type = GetObjectType((*current_tuple)());
+      //std::cout << "current_file_index"
+      if(current_file_index == point_exit.first && current_entry > entries_end ) return false;
+      while(!current_file_index || current_entry > entries_end) {
+	if(!current_file_index)
+	  current_file_index = point_entry.first;
+	else
+	  ++(*current_file_index);
+	if(*current_file_index >= file_names.size())
+	  throw exception("File index: %1% is out of file_names array '%2%', DataGroup: '%3%'")
+	    % current_file_index.value() % file_names.size() % name;
+	const std::string& file_name = file_names.at(*current_file_index);
+	std::cout << "Opening: " << name << " " << file_name << std::endl;
+	dataset_hash = dataset_hash_arr.at(*current_file_index);
+	current_tuple.reset();
+	if(current_file) current_file->Close();
 
-        } while (!current_tau_type || tau_types.find(current_tau_type.value()) == tau_types.end());
+	/*const char* workdir = std::getenv("WORKDIR");
+	const char* proxy = std::getenv("X509_USER_PROXY");
+	if (!proxy) {
+	  std::cerr << "X509_USER_PROXY is not set. Fetching dynamically..." << std::endl;
+	  FILE* pipe = popen("voms-proxy-info --path", "r");
+	  char proxyPath[256];
+	  if (pipe && fgets(proxyPath, sizeof(proxyPath), pipe)) {
+            pclose(pipe);
+            std::string proxyStr(proxyPath);
+            proxyStr.erase(proxyStr.find_last_not_of("\n") + 1);
+            
+            // 3. Set the proxy path in the current environment
+            setenv("X509_USER_PROXY", proxyStr.c_str(), 1);
+            std::cout << "Set X509_USER_PROXY: " << proxyStr << std::endl;
+	  } else {
+            std::cerr << "Error: Could not retrieve proxy path." << std::endl;
+            return 1;
+	  }
+	} else {
+	  std::cout << "X509_USER_PROXY: " << proxy << std::endl;
+	  }*/
+	//runCommand("ls $PWD")
+	//runCommand("ls $WORKDIR")
+	//std::string localinputfile = "/tmp/step3_inputfile.root";
+	//std::string localinputfile = "/tmp/step3_inputfile.root";
+	//##std::string localinputfile = std::string(workdir) + "/tmp/step3_inputfile.root";
+	//##std:string localtempdir = std::string(workdir);
+	//rumcommand("ls ${WORKDIR}")
+	//runCommand("ls /tmp");
+	//##runCommand("voms-proxy-info --all");
+	//##runCommand("xrdcp " + file_name + " " + localinputfile);
+	//##runCommand("ls -ltrh " + localtempdir + "/tmp");
+    current_file = root_ext::OpenRootFile(file_name);
+    //##current_file = root_ext::OpenRootFile(localinputfile);
+	current_tuple = std::make_shared<TauTuple>("taus", current_file.get(), true, disabled_branches, enabled_branches);
+	entries_file = current_tuple->GetEntries();
+	current_entry = current_file_index == point_entry.first ? point_entry.second : 0;
+	entries_end = current_file_index == point_exit.first ? point_exit.second : entries_file - 1;
+	if(!entries_file)
+	  throw exception("Root file %1% is empty.") % file_name;
+	//##runCommand("rm -f " + localinputfile);
+      }
+      current_tuple->GetEntry(current_entry++);
+      ++total_n_processed;
+      
+      current_tau_type = std::nullopt;
+      current_tau_type = GetObjectType((*current_tuple)());
+      
+    } while (!current_tau_type || tau_types.find(current_tau_type.value()) == tau_types.end());
+    
+    (*current_tuple)().tauType = static_cast<Int_t>(current_tau_type.value());
+    (*current_tuple)().dataset_id = dataset_hash;
+    (*current_tuple)().dataset_group_id = group_hash;
 
-      (*current_tuple)().tauType = static_cast<Int_t>(current_tau_type.value());
-      (*current_tuple)().dataset_id = dataset_hash;
-      (*current_tuple)().dataset_group_id = group_hash;
-      return true;
-    }
-
-    virtual ~SourceDesc() {};
-
-    virtual std::optional<ObjectType> GetObjectType(const Tau& tau) {return std::nullopt;}
-
-    const Tau& GetNextTau() { return current_tuple->data(); }
-    const size_t GetNumberOfProcessed() const { return total_n_processed; }
-    const size_t GetTotalEntries() const { return total_entries; }
-    const ObjectType GetType() { return current_tau_type.value(); }
-
-  private:
-    const std::string name;
-    const size_t total_entries;
-    const ULong64_t group_hash;
-    std::vector<std::string> file_names;
-    std::vector<ULong64_t> dataset_hash_arr;
-    const std::set<std::string> disabled_branches;
-    const std::set<std::string> enabled_branches;
-    const std::pair<size_t, size_t> point_entry;
-    const std::pair<size_t, size_t> point_exit;
+    
+    return true;
+  }
+  
+  virtual ~SourceDesc() {};
+  
+  virtual std::optional<ObjectType> GetObjectType(const Tau& tau) {return std::nullopt;}
+  
+  const Tau& GetNextTau() { return current_tuple->data(); }
+  const size_t GetNumberOfProcessed() const { return total_n_processed; }
+  const size_t GetTotalEntries() const { return total_entries; }
+  const ObjectType GetType() { return current_tau_type.value(); }
+  
+private:
+  const std::string name;
+  const size_t total_entries;
+  const ULong64_t group_hash;
+  std::vector<std::string> file_names;
+  std::vector<ULong64_t> dataset_hash_arr;
+  const std::set<std::string> disabled_branches;
+  const std::set<std::string> enabled_branches;
+  const std::pair<size_t, size_t> point_entry;
+  const std::pair<size_t, size_t> point_exit;
     const std::set<ObjectType> tau_types;
     std::shared_ptr<TFile> current_file;
     std::shared_ptr<TauTuple> current_tuple;

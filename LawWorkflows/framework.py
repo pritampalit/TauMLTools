@@ -68,8 +68,11 @@ class HTCondorWorkflow(law.htcondor.HTCondorWorkflow):
     # render_variables are rendered into all files sent with a job
     config.render_variables["analysis_path"] = os.getenv("ANALYSIS_PATH")
     config.render_variables["environment"] = self.environment
-    if 'CONDA_EXE' in os.environ:
-      config.render_variables["conda_path"]    = '/'.join(os.environ['CONDA_EXE'].split('/')[:-2])
+    #if 'CONDA_EXE' in os.environ:
+    #  config.render_variables["conda_path"]    = '/'.join(os.environ['CONDA_EXE'].split('/')[:-2])
+
+    if 'CONDA_PREFIX' in os.environ:
+      config.render_variables["conda_path"]    = '/'.join(os.environ['CONDA_PREFIX'].split('/')[:-2])
 
     # maximum runtime
     config.custom_content.append(("+MaxRuntime", int(math.floor(self.max_runtime * 3600)) - 1))

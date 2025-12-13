@@ -40,13 +40,16 @@ do_install_cmssw() {
     run_cmd scramv1 project CMSSW $CMSSW_VER
     run_cmd cd $CMSSW_VER/src
     run_cmd eval `scramv1 runtime -sh`
-    git cms-init
-    git cms-merge-topic silviodonato:customizeHLTFor2023 # to download customisation function for 2023 PFCluster thresholds at HLT
+    run_cmd git cms-init
+    run_cmd git cms-addpkg L1Trigger/L1TCalorimeter
+    run_cmd git clone git@github.com:cms-l1t-offline/L1Trigger-L1TCalorimeter.git L1Trigger/L1TCalorimeter/data
+    run_cmd cp $this_dir/Production/python/hlt_configs/caloParams_2023_v0_2_cfi.py L1Trigger/L1TCalorimeter/python
     run_cmd mkdir TauMLTools
     run_cmd cd TauMLTools
     run_cmd ln -s "$this_dir/Analysis" Analysis
     run_cmd ln -s "$this_dir/Core" Core
     run_cmd ln -s "$this_dir/Production" Production
+    run_cmd ln -s "$this_dir/Preprocessing" Preprocessing
     run_cmd scram b -j8
     run_cmd touch "$this_dir/soft/CentOS$os_version/$CMSSW_VER/.installed"
   fi
@@ -96,12 +99,13 @@ action() {
   run_cmd mkdir -p "$ANALYSIS_DATA_PATH"
 
   local os_version=$(cat /etc/os-release | grep VERSION_ID | sed -E 's/VERSION_ID="([0-9]+).*"/\1/')
-  local default_cmssw_ver=CMSSW_13_0_0
+  local default_cmssw_ver=CMSSW_13_0_7
   export DEFAULT_CMSSW_BASE="$ANALYSIS_PATH/soft/CentOS$os_version/$default_cmssw_ver"
 
   if [[ $MODE = *"cmssw"* ]]; then
     run_cmd install_cmssw slc7_amd64_gcc11 $default_cmssw_ver $os_version 7
     run_cmd install_cmssw el8_amd64_gcc11 $default_cmssw_ver $os_version 8
+    run_cmd install_cmssw el9_amd64_gcc10 $default_cmssw_ver $os_version 9
 
     #for phase2
     #run_cmd install_cmssw slc7_amd64_gcc900 CMSSW_11_2_5 $os_version 7
@@ -185,6 +189,7 @@ action() {
     fi
     local TAU_ML_LIB_DIR=$(cd $(dirname $(which python))/..; pwd)
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TAU_ML_LIB_DIR/lib
+    ##///export LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH:$TAU_ML_LIB_DIR/lib
   else
     source /cvmfs/sft.cern.ch/lcg/views/setupViews.sh LCG_102 x86_64-centos${os_version}-gcc11-opt
     for law_location in /afs/cern.ch/user/m/mrieger/public/law_sw/setup.sh /afs/desy.de/user/r/riegerma/public/law_sw/setup.sh; do

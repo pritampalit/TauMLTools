@@ -1,0 +1,4 @@
+/store/user/ppalit/promtauntuples/rhpt/rhpt_dummy/230226_140725/0000/eventTuple_2.root
+/store/user/ppalit/promtauntuples/rhpt/rhpt_dummy/230226_140725/0000/eventTuple_3.root
+/store/user/ppalit/promtauntuples/rhpt/rhpt_dummy/230226_140725/0000/eventTuple_5.root
+/store/user/ppalit/promtauntuples/rhpt/rhpt_dummy/230226_140725/0000/eventTuple_6.root

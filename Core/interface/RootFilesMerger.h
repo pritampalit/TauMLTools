@@ -8,6 +8,7 @@ This file is part of https://github.com/cms-tau-pog/TauMLTools. */
 #include <memory>
 #include <boost/filesystem.hpp>
 #include <boost/regex.hpp>
+#include <cstdlib>
 
 #include <TROOT.h>
 #include <TKey.h>
@@ -18,6 +19,20 @@ This file is part of https://github.com/cms-tau-pog/TauMLTools. */
 
 #include "RootExt.h"
 #include "TextIO.h"
+#include "TSystem.h"
+
+bool isRunningInCondor() {
+  const char* condorSlot = std::getenv("_CONDOR_SLOT");
+    
+    /*    if (condorJobId != nullptr ) {
+        return true;
+    } else {
+        return false;
+	}*/
+
+    return (condorSlot != nullptr);
+}
+
 
 namespace analysis {
 
@@ -33,8 +48,205 @@ inline void CollectInputFiles(const boost::filesystem::path& dir, std::vector<st
       files.push_back(entry.path().string());
   }
 }
-} // namespace detail
+  
+  void CollectInputFilesXRootD(const std::string& dir, std::vector<std::string>& files,
+			       const boost::regex& pattern, const std::set<std::string>& exclude,
+			       const std::set<std::string>& exclude_dirs)
+  {
+    // Command to list files in XRootD directory using xrdfs
+    
+    //std::string command = "xrdfs " + dir + " ls";
+    //std::cout << "Executing command: " << command << std::endl;
+    
+    std::cout<< "If running condor : " << isRunningInCondor() << std::endl;
 
+    size_t pos = dir.find("//store");
+    std::string prefix = dir.substr(0, pos + 1);   
+    std::string pathdir = dir.substr(pos + 1);     
+    
+    std::string command = "xrdfs " + prefix + " ls " + pathdir;
+    
+    std::cout << "prefix is : " << prefix << std::endl;
+    std::cout << "pathdir is : " << pathdir << std::endl;
+
+    std::cout << "Executing command: " << command << std::endl;
+
+    std::string command_with_output_and_error_redirect = command + " 2>&1";
+    
+    // Execute command and capture the output
+    /////#####FILE* pipe = gSystem->OpenPipe(command.c_str(), "r");
+    FILE* pipe = gSystem->OpenPipe(command_with_output_and_error_redirect.c_str(), "r");
+
+
+    /*    FILE* openPipeWithRetry(const std::string& command, int max_retries = 50, int retry_delay = 2) {
+      FILE* pipe = nullptr;
+      int attempt = 0;
+      
+      while (attempt < max_retries) {
+        pipe = gSystem->OpenPipe(command.c_str(), "r");
+        if (pipe) {
+            return pipe;  // Success, return the pipe
+        }
+	
+        // If failed, print retry attempt and wait
+        std::cerr << "Attempt " << (attempt + 1) << " failed, retrying in " << retry_delay << " seconds...\n";
+        std::this_thread::sleep_for(std::chrono::seconds(retry_delay));
+        ++attempt;
+      }
+      
+      throw std::runtime_error("Failed to execute xrdfs ls after retries");
+      }*/
+    
+    std::cout<< "After OpenPipe command" << std::endl; 
+    
+    if (!pipe){
+      std::cerr << "Error opening pipe for command: " << command << std::endl;
+      perror("OpenPipe error"); 
+      throw std::runtime_error("Failed to execute xrdfs ls");
+      
+    }
+      
+    std::cout<< "After xrdfs failed command" << std::endl;
+    
+    char buffer[256];
+    std::vector<std::string> file_list;
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+      std::cout<< "startting the buffer loop" << std::endl;
+      std::string file = buffer;
+      std::cout<< "going to trim in the buffer loop" << std::endl;
+      boost::trim(file);
+
+      std::cout << "Command Output: " << file << std::endl;
+      
+      // Skip directories that are in the exclude list
+      size_t last_slash = file.find_last_of('/');
+      if (last_slash != std::string::npos) {
+	std::string dir_name = file.substr(last_slash + 1); 
+	
+	std::cout << "The directory name is : " << dir_name << std::endl;
+	
+	if (boost::filesystem::is_directory(file) && exclude_dirs.count(dir_name)) {
+	  continue; 
+	}
+      } else {
+	std::cerr << "Warning: Skipping unexpected warning line: " << file << std::endl;
+	continue;  
+      }
+
+      
+      /*std::string dir_name = file.substr(last_slash + 1);
+      
+      std::cout << "The directory name is : " << dir_name << std::endl;
+      
+      if (boost::filesystem::is_directory(file) && exclude_dirs.count(dir_name)) {
+	continue;
+	}*/
+      
+      file_list.push_back(file);
+    }
+    gSystem->ClosePipe(pipe);
+    
+    // Apply the pattern matching and exclusion
+    for (const auto& file : file_list) {
+      if (boost::regex_match(file, pattern) && !exclude.count(file)) {
+	std::string full_file_path = prefix + '/' + file;
+	std::cout << "second prefix name is : " << prefix << std::endl;
+	std::cout << "file is : " << file << std::endl;
+	
+	files.push_back(full_file_path);
+      }
+    }
+  }
+
+  
+  /*  
+  void CollectInputFilesXRootDCondor(const std::string& dir, std::vector<std::string>& files)
+  {
+    // Command to list files in XRootD directory using xrdfs
+    
+    //std::string command = "xrdfs " + dir + " ls";
+    //std::cout << "Executing command: " << command << std::endl;
+    
+    std::cout<< "If running condor : " << isRunningInCondor() << std::endl;
+
+    size_t pos = dir.find("//store");
+    std::string prefix = dir.substr(0, pos + 1);   
+    std::string pathdir = dir.substr(pos + 1);     
+    
+    std::string command = "xrdfs " + prefix + " ls " + pathdir;
+    
+    std::cout << "prefix is : " << prefix << std::endl;
+    std::cout << "pathdir is : " << pathdir << std::endl;
+
+    std::cout << "Executing command: " << command << std::endl;
+
+    std::string command_with_output_and_error_redirect = command + " 2>&1";
+    
+    // Execute command and capture the output
+    /////#####FILE* pipe = gSystem->OpenPipe(command.c_str(), "r");
+    FILE* pipe = gSystem->OpenPipe(command_with_output_and_error_redirect.c_str(), "r");
+
+    
+    std::cout<< "After OpenPipe command" << std::endl; 
+    
+    if (!pipe){
+      std::cerr << "Error opening pipe for command: " << command << std::endl;
+      perror("OpenPipe error"); 
+      throw std::runtime_error("Failed to execute xrdfs ls");
+      
+    }
+      
+    std::cout<< "After xrdfs failed command" << std::endl;
+    
+    char buffer[256];
+    std::vector<std::string> file_list;
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+      std::cout<< "startting the buffer loop" << std::endl;
+      std::string file = buffer;
+      std::cout<< "going to trim in the buffer loop" << std::endl;
+      boost::trim(file);
+
+      std::cout << "Command Output: " << file << std::endl;
+      
+      // Skip directories that are in the exclude list
+      size_t last_slash = file.find_last_of('/');
+      if (last_slash != std::string::npos) {
+	std::string dir_name = file.substr(last_slash + 1); 
+	
+	std::cout << "The directory name is : " << dir_name << std::endl;
+	
+	if (boost::filesystem::is_directory(file) && exclude_dirs.count(dir_name)) {
+	  continue; 
+	}
+      } else {
+	std::cerr << "Warning: Skipping unexpected warning line: " << file << std::endl;
+	continue;  
+      }
+
+      
+    
+      
+      file_list.push_back(file);
+    }
+    gSystem->ClosePipe(pipe);
+
+    
+    
+    // Apply the pattern matching and exclusion
+    for (const auto& file : file_list) {
+      if (boost::regex_match(file, pattern) && !exclude.count(file)) {
+	std::string full_file_path = prefix + '/' + file;
+	std::cout << "second prefix name is : " << prefix << std::endl;
+	std::cout << "file is : " << file << std::endl;
+	
+	files.push_back(full_file_path);
+      }
+    }
+  }
+  */
+  
+} // namespace detail
+  
 class RootFilesMerger {
 public:
   struct HistDescriptor {
@@ -173,7 +385,7 @@ public:
     }
   }
 
-  static std::vector<std::string> FindInputFiles(const std::vector<std::string>& dirs,
+  /*  static std::vector<std::string> FindInputFiles(const std::vector<std::string>& dirs,
                                                  const std::string& file_name_pattern,
                                                  const std::string& exclude_list,
                                                  const std::string& exclude_dir_list)
@@ -192,22 +404,66 @@ public:
     }
     return files;
   }
+  */
 
+  static std::vector<std::string> FindInputFiles(const std::vector<std::string>& dirs,
+                                               const std::string& file_name_pattern,
+                                               const std::string& exclude_list,
+                                               const std::string& exclude_dir_list)
+  {
+    auto exclude_vector = analysis::SplitValueList(exclude_list, true, ",");
+    std::set<std::string> exclude(exclude_vector.begin(), exclude_vector.end());
+    
+    auto exclude_dir_vector = analysis::SplitValueList(exclude_dir_list, true, ",");
+    std::set<std::string> exclude_dirs(exclude_dir_vector.begin(), exclude_dir_vector.end());
+    
+    const boost::regex pattern(file_name_pattern);
+    std::vector<std::string> files;
+
+    std::cout<< "Here going to collect input files.."<< std::endl;
+    
+    for(const auto& dir : dirs) {
+      if (isRunningInCondor()){
+	///###std::string prefix = "root://cms-xrd-global.cern.ch/";
+	///###std::string xrdpathdir = prefix + dir;
+	std::string xrdpathdir = dir;
+	files.push_back(xrdpathdir);
+      }
+      else{
+      if (boost::starts_with(dir, "root://")) {
+	// Handle XRootD directories
+	detail::CollectInputFilesXRootD(dir, files, pattern, exclude, exclude_dirs);
+      } else {
+	// Handle local directories
+	boost::filesystem::path path(dir);
+	detail::CollectInputFiles(path, files, pattern, exclude, exclude_dirs);
+      }
+      }
+    }
+    
+    return files;
+  }
+  
 private:
   virtual void ProcessFile(const std::string& /*file_name*/, const std::shared_ptr<TFile>& /*file*/) {}
 
   static void ProcessDirectory(const std::string& file_name, const std::string& dir_name, TDirectory* dir,
                                ObjectCollection& objects, bool process_histograms, bool process_trees)
   {
+    std::cout << "Entering ProcessDirectory for directory: " << dir_name
+              << " from file: " << file_name << std::endl;
     using ClassInheritance = root_ext::ClassInheritance;
     TIter nextkey(dir->GetListOfKeys());
     for(TKey* t_key; (t_key = dynamic_cast<TKey*>(nextkey()));) {
+      std::cout << "Processing key: " << t_key->GetName()
+              << " of class: " << t_key->GetClassName() << std::endl;
       const ClassInheritance inheritance = root_ext::FindClassInheritance(t_key->GetClassName());
       const Key key(dir_name, t_key->GetName());
 
       switch (inheritance) {
         case ClassInheritance::TH1: {
           if(process_histograms) {
+	    std::cout << "Processing histogram: " << key.name << " in directory: " << dir_name << std::endl;
             auto hist = HistPtr(root_ext::ReadObject<TH1>(*dir, key.name));
             hist->SetDirectory(nullptr);
             objects.hists[key].AddHistogram(std::move(hist));
@@ -216,11 +472,13 @@ private:
         }
         case ClassInheritance::TTree: {
           if(process_trees) {
-              objects.trees[key].AddFile(file_name);
+	    std::cout << "Processing tree: " << key.name << " in directory: " << dir_name << std::endl;
+	    objects.trees[key].AddFile(file_name);
           }
           break;
         } case ClassInheritance::TDirectory: {
           auto subdir = root_ext::ReadObject<TDirectory>(*dir, key.name);
+	  std::cout << "Recursively calling ProcessDirectory for subdirectory: " << key.full_name << std::endl;
           ProcessDirectory(file_name, key.full_name + "/", subdir, objects, process_histograms,
                           process_trees);
           break;

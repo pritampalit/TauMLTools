@@ -30,9 +30,13 @@ std::shared_ptr<TFile> inline CreateRootFile(const std::string& file_name,
 
 std::shared_ptr<TFile> inline OpenRootFile(const std::string& file_name)
 {
-  std::shared_ptr<TFile> file(TFile::Open(file_name.c_str(), "READ"));
+  std::cout<< "open root file started" << std::endl;
+  std::shared_ptr<TFile> file(TFile::Open(file_name.c_str(), "READ"));  
+  std::cout<< "after booking file" << std::endl;
   if(!file || file->IsZombie())
     throw analysis::exception("File '%1%' not opened.") % file_name;
+  if(file)
+    std::cout << "Input file is opened" << std::endl;
   return file;
 }
 

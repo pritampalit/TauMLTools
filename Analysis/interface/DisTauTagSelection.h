@@ -14,72 +14,107 @@ static const double jet_eta = 2.4;
 static const double genJet_pt = 20; //GeV
 static const double genJet_eta = 2.4;
 
-static const double gen_tau_pt = 10; //GeV
-static const double gen_z = 100; //cm
-static const double gen_rho = 50; //cm
-static const double genLepton_jet_dR = 0.4;
+static const double gen_disp_tau_pt = 20; //GeV
+static const double gen_disp_z = 100; //cm
+static const double gen_disp_rho = 50; //cm
+static const double genLepton_jet_disp_dR = 0.4;
+
+static const double gen_prom_tau_pt = 20; //GeV
+static const double gen_prom_z = 1.0; //cm
+static const double gen_prom_rho = 0.3; //cm
+static const double genLepton_jet_prom_dR = 0.4;
 
 }
 
 namespace analysis {
 
-enum class JetType { jet = 0, tau = 1 };
+  enum class JetType { jet = 0, promtau = 1, disptau = 2 };
 
 ENUM_NAMES(JetType) = {
     { JetType::jet, "jet" },
-    { JetType::tau, "tau" }
+    { JetType::promtau, "promtau" },
+    { JetType::disptau, "disptau" },
 };
 
-std::optional<JetType> GetJetType(const tau_tuple::Tau& tau) {
+  std::optional<JetType> GetJetType(const tau_tuple::Tau& tau, const bool enable_pu_jets = false,const bool take_all_taus = false) {
 
     using GTGenLeptonKind = reco_tau::gen_truth::GenLepton::Kind;
 
     if( tau.jet_index >= 0 && 
         tau.jet_pt > JetTypeSelection::jet_pt &&
         std::abs(tau.jet_eta) < JetTypeSelection::jet_eta  ) 
-    {
-
+      {
+	
         if( tau.genLepton_kind == static_cast<int>(GTGenLeptonKind::TauDecayedToHadrons) )
-        {
+	  //if( 0>1 )
+	  {
             reco_tau::gen_truth::GenLepton genLeptons = 
-                    reco_tau::gen_truth::GenLepton::fromRootTuple(
-                            tau.genLepton_lastMotherIndex,
-                            tau.genParticle_pdgId,
-                            tau.genParticle_mother,
-                            tau.genParticle_charge,
-                            tau.genParticle_isFirstCopy,
-                            tau.genParticle_isLastCopy,
-                            tau.genParticle_pt,
-                            tau.genParticle_eta,
-                            tau.genParticle_phi,
-                            tau.genParticle_mass,
-                            tau.genParticle_vtx_x,
-                            tau.genParticle_vtx_y,
-                            tau.genParticle_vtx_z);
+	      reco_tau::gen_truth::GenLepton::fromRootTuple(
+							    tau.genLepton_lastMotherIndex,
+							    tau.genParticle_pdgId,
+							    tau.genParticle_mother,
+							    tau.genParticle_charge,
+							    tau.genParticle_isFirstCopy,
+							    tau.genParticle_isLastCopy,
+							    tau.genParticle_pt,
+							    tau.genParticle_eta,
+							    tau.genParticle_phi,
+							    tau.genParticle_mass,
+							    tau.genParticle_vtx_x,
+							    tau.genParticle_vtx_y,
+							    tau.genParticle_vtx_z);
             auto vertex = genLeptons.lastCopy().vertex;
             auto visible_p4 = genLeptons.visibleP4();
-
+	   
+	    
             if( std::abs(genLeptons.lastCopy().pdgId) != 15 )
-                throw exception("Error GetJetType: last copy of genLeptons is not tau.");
+	      throw exception("Error GetJetType: last copy of genLeptons is not tau.");
 
-            if( std::abs(vertex.z()) < JetTypeSelection::gen_z &&
-                std::abs(vertex.rho()) < JetTypeSelection::gen_rho &&
-                visible_p4.pt() > JetTypeSelection::gen_tau_pt ) 
-            {
+	    /*std::cout << "disp vtx z : " << std::abs(vertex.z())
+		      << "disp vtx rho : " << std::abs(vertex.rho())
+		      << "disp pt : " << visible_p4.pt()
+		      << std::endl;
+	    */
+            if( std::abs(vertex.z()) < JetTypeSelection::gen_disp_z &&
+		std::abs(vertex.z()) > JetTypeSelection::gen_prom_z &&
+                std::abs(vertex.rho()) < JetTypeSelection::gen_disp_rho &&
+                std::abs(vertex.rho()) > JetTypeSelection::gen_prom_rho &&
+                visible_p4.pt() > JetTypeSelection::gen_disp_tau_pt ) 
+	      {
                 ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>> jet_p4
-                    ( tau.jet_pt, tau.jet_eta, tau.jet_phi, tau.jet_mass );
-
+		  ( tau.jet_pt, tau.jet_eta, tau.jet_phi, tau.jet_mass );
+		
                 double dR = ROOT::Math::VectorUtil::DeltaR(jet_p4, genLeptons.visibleP4());
-                if( dR < JetTypeSelection::genLepton_jet_dR ) return JetType::tau;
-            }
-            return JetType::tau;
-        } else if( tau.genJet_index >= 0 && 
-                   (tau.genLepton_kind <= 0 || tau.genLepton_kind == static_cast<int>(GenLeptonMatch::NoMatch)) &&
-                   tau.genJet_pt > JetTypeSelection::genJet_pt && 
-                   std::abs(tau.genJet_eta) < JetTypeSelection::genJet_eta )
-                    return JetType::jet;
-    }
-    return std::nullopt;
+		//std::cout<< "disp dr : " << dR << std::endl;
 
-}
+                if( dR < JetTypeSelection::genLepton_jet_disp_dR ) return JetType::disptau;
+		////if( dR < -100. ) return JetType::disptau;
+	      }
+ 
+            else if(std::abs(vertex.z()) < JetTypeSelection::gen_prom_z &&
+		    std::abs(vertex.rho()) < JetTypeSelection::gen_prom_rho &&
+		    visible_p4.pt() > JetTypeSelection::gen_prom_tau_pt 
+		 ) 
+	      ///visible_p4.pt() > 2000. ) 
+	      {
+                ROOT::Math::LorentzVector<ROOT::Math::PtEtaPhiM4D<double>> jet_p4
+		  ( tau.jet_pt, tau.jet_eta, tau.jet_phi, tau.jet_mass );
+		
+                double dR = ROOT::Math::VectorUtil::DeltaR(jet_p4, genLeptons.visibleP4());
+		//std::cout<< "disp dr : " << dR << std::endl;
+
+                if( dR < JetTypeSelection::genLepton_jet_prom_dR ) return JetType::promtau;
+		////if( dR < -100. ) return JetType::disptau;
+	      }
+            //return JetType::disptau;
+	  }	
+	else if( tau.genJet_index >= 0 && 
+		 (tau.genLepton_kind <= 0 || tau.genLepton_kind == static_cast<int>(GenLeptonMatch::NoMatch)) &&
+		 tau.genJet_pt > JetTypeSelection::genJet_pt && 
+		 std::abs(tau.genJet_eta) < JetTypeSelection::genJet_eta )
+	  return JetType::jet;
+      }
+    return std::nullopt;
+    
+ }
 } // namespace analysis

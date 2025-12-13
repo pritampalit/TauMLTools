@@ -18,8 +18,9 @@ struct Arguments {
     run::Argument<std::string> outputfile{"outputfile", "output file name"};
     run::Argument<std::string> output_entries{"output_entries", "txt output file with filenames and number of entries"};
     run::Argument<std::vector<std::string>> input_dirs{"input-dir", "input directory"};
-    run::Argument<std::string> pt_hist{"pt-hist", "pt hist setup: (number of bins, pt_min, pt_max)", "200, 0.0, 1000"};
-    run::Argument<std::string> eta_hist{"eta-hist", "eta hist setup: (number of bins, abs(eta)_min, abs(eta)_max)","4, 0.0, 2.3"};
+  /////run::Argument<bool> runCondor{"runCondor", "If run on condor or not"};
+    run::Argument<std::string> pt_hist{"pt-hist", "pt hist setup: (number of bins, pt_min, pt_max)", "4990, 10.0, 5000"};
+    run::Argument<std::string> eta_hist{"eta-hist", "eta hist setup: (number of bins, abs(eta)_min, abs(eta)_max)","25, 0.0, 2.5"};
     run::Argument<std::string> file_name_pattern{"file-name-pattern", "regex expression to match file names",
                                                  "^.*\\.root$"};
     run::Argument<std::string> exclude_list{"exclude-list", "comma separated list of files to exclude", ""};
@@ -103,11 +104,11 @@ void HistSpectrum::fillHist(const Tau& tau) {
 struct BoostedHist : public HistSpectrum {
 
   BoostedHist(std::shared_ptr<TFile>& outputFile, const HistArgs& hargs) : HistSpectrum(outputFile, hargs) {
-      boostedTau_eta_pt_hist.SetMasterHist(
-          hargs.eta_bins, hargs.eta_min, hargs.eta_max,
-          hargs.pt_bins, hargs.pt_min, hargs.pt_max);
+    boostedTau_eta_pt_hist.SetMasterHist(
+					 hargs.eta_bins, hargs.eta_min, hargs.eta_max,
+					 hargs.pt_bins, hargs.pt_min, hargs.pt_max);
   };
-
+  
   std::set<std::string> getEnabledBranches() {
     return {"boostedTau_pt",
             "boostedTau_eta",
@@ -126,72 +127,76 @@ struct BoostedHist : public HistSpectrum {
             "boostedTau_mass",
             "evt"};
   }
-
+  
   void fillHist(const Tau& tau) {
-      const auto gen_match = GetGenLeptonMatch(static_cast<reco_tau::gen_truth::GenLepton::Kind>(tau.genLepton_kind), tau.genLepton_index, 
-                                                            tau.tau_pt, tau.tau_eta, tau.tau_phi, tau.tau_mass, tau.genLepton_vis_pt, 
-                                                            tau.genLepton_vis_eta, tau.genLepton_vis_phi, tau.genLepton_vis_mass, tau.genJet_index);
-      if(tau.boostedTau_index >= 0 && gen_match) {
-          const auto sample_type = static_cast<SampleType>(tau.sampleType);
-          const TauType tau_type = analysis::GenMatchToTauType(*gen_match, sample_type);
-          boostedTau_eta_pt_hist(tau_type).Fill(std::abs(tau.boostedTau_eta), tau.boostedTau_eta);
-      } else {
-          not_valid().Fill(1);
-      }
+    const auto gen_match = GetGenLeptonMatch(static_cast<reco_tau::gen_truth::GenLepton::Kind>(tau.genLepton_kind), tau.genLepton_index, 
+					     tau.tau_pt, tau.tau_eta, tau.tau_phi, tau.tau_mass, tau.genLepton_vis_pt, 
+					     tau.genLepton_vis_eta, tau.genLepton_vis_phi, tau.genLepton_vis_mass, tau.genJet_index);
+    if(tau.boostedTau_index >= 0 && gen_match) {
+      const auto sample_type = static_cast<SampleType>(tau.sampleType);
+      const TauType tau_type = analysis::GenMatchToTauType(*gen_match, sample_type);
+      boostedTau_eta_pt_hist(tau_type).Fill(std::abs(tau.boostedTau_eta), tau.boostedTau_eta);
+    } else {
+      not_valid().Fill(1);
+    }
   }
-
+  
   TH2D_ENTRY_EMPTY(boostedTau_eta_pt_hist) /* boosted Tau eta phi*/
-
+  
 };
-
-// Displaced Tau selector
-struct DisTauJetHist : public HistSpectrum {
-
-  DisTauJetHist(std::shared_ptr<TFile>& outputFile, const HistArgs& hargs) : HistSpectrum(outputFile, hargs) {
+  
+  // Displaced Tau selector
+  struct DisTauJetHist : public HistSpectrum {
+    
+    DisTauJetHist(std::shared_ptr<TFile>& outputFile, const HistArgs& hargs) : HistSpectrum(outputFile, hargs) {
       jet_eta_pt_hist.SetMasterHist(
-          hargs.eta_bins, hargs.eta_min, hargs.eta_max,
-          hargs.pt_bins, hargs.pt_min, hargs.pt_max);
+				    hargs.eta_bins, hargs.eta_min, hargs.eta_max,
+				    hargs.pt_bins, hargs.pt_min, hargs.pt_max);
+    };
+    
+    std::set<std::string> getEnabledBranches() {
+      return { "jet_index",
+	       "jet_pt",
+	       "jet_eta",
+	       "jet_phi",
+	       "jet_mass",
+	       "genJet_index",
+	       "genJet_eta",
+	       "genJet_pt",
+	       "genLepton_kind",
+	       "genLepton_lastMotherIndex",
+	       "genParticle_pdgId",
+	       "genParticle_mother",
+	       "genParticle_charge",
+	       "genParticle_isFirstCopy",
+	       "genParticle_isLastCopy",
+	       "genParticle_pt",
+	       "genParticle_eta",
+	       "genParticle_phi",
+	       "genParticle_mass",
+	       "genParticle_vtx_x",
+	       "genParticle_vtx_y",
+	       "genParticle_vtx_z",
+	       "evt"};
+    }
+    
+    void fillHist(const Tau& tau) {
+      const auto jetType_match = GetJetType(tau);
+      //      if (jetType_match && *jetType_match == JetType::promtau)
+      /////////std::cout << "##########promtau found##########" << std::endl;
+      //std::cout << "jetType_match : " << static_cast<int>(*jetType_match) << std::endl;
+      
+      if(jetType_match) {
+	const JetType jetType = std::move(*jetType_match);
+	jet_eta_pt_hist(jetType).Fill(std::abs(tau.jet_eta), tau.jet_pt);
+      } else {
+	not_valid().Fill(1);
+      }
+    }      
+    TH2D_ENTRY_EMPTY(jet_eta_pt_hist) /* reco jet eta phi (displaced tau mode)*/
   };
-
-  std::set<std::string> getEnabledBranches() {
-    return { "jet_index",
-            "jet_pt",
-            "jet_eta",
-            "jet_phi",
-            "jet_mass",
-            "genJet_index",
-            "genJet_eta",
-            "genJet_pt",
-            "genLepton_kind",
-            "genLepton_lastMotherIndex",
-            "genParticle_pdgId",
-            "genParticle_mother",
-            "genParticle_charge",
-            "genParticle_isFirstCopy",
-            "genParticle_isLastCopy",
-            "genParticle_pt",
-            "genParticle_eta",
-            "genParticle_phi",
-            "genParticle_mass",
-            "genParticle_vtx_x",
-            "genParticle_vtx_y",
-            "genParticle_vtx_z",
-            "evt"};
-}
-
-void fillHist(const Tau& tau) {
-  const auto jetType_match = GetJetType(tau);
-  if(jetType_match) {
-    const JetType jetType = std::move(*jetType_match);
-    jet_eta_pt_hist(jetType).Fill(std::abs(tau.jet_eta), tau.jet_pt);
-  } else {
-    not_valid().Fill(1);
-  }
-}
-  TH2D_ENTRY_EMPTY(jet_eta_pt_hist) /* reco jet eta phi (displaced tau mode)*/
-};
-
-
+  
+    
 std::shared_ptr<HistSpectrum> HistSpectrum::getHist(const std::string& name,
                                                     std::shared_ptr<TFile>& outputFile,
                                                     const HistArgs& hargs) {
@@ -230,10 +235,14 @@ public:
 
       hists = HistSpectrum::getHist(
         args.mode(), outputfile, ParseHistSetup(args.pt_hist(),args.eta_hist()));
+
     }
 
+  
+  
     void Run()
     {
+      std::cout<< "Run() started" << std::endl;
         for(const auto& file_name : input_files) {
             std::cout << "file: " << file_name << std::endl;
             auto file = root_ext::OpenRootFile(file_name);

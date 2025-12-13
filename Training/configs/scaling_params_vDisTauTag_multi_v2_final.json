@@ -1,0 +1,228 @@
+{
+    "PfCand": {
+        "pfCand_valid": {
+            "global": {
+                "mean": 0,
+                "std": 1,
+                "lim_min": "-inf",
+                "lim_max": "inf"
+            }
+        },
+        "pfCand_pt": {
+            "global": {
+                "mean": 125.0,
+                "std": 125.0,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_eta": {
+            "global": {
+                "mean": 0.0,
+                "std": 3.0,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_phi": {
+            "global": {
+                "mean": 0.0,
+                "std": 3.141592653589793,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_log_pt": {
+            "global": {
+                "mean": 1.5,
+                "std": 5.5,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_log_E": {
+            "global": {
+                "mean": 1.5,
+                "std": 5.5,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_charge": {
+            "global": {
+                "mean": 0,
+                "std": 1,
+                "lim_min": "-inf",
+                "lim_max": "inf"
+            }
+        },
+        "pfCand_puppiWeight": {
+            "global": {
+                "mean": 0,
+                "std": 1,
+                "lim_min": "-inf",
+                "lim_max": "inf"
+            }
+        },
+        "pfCand_puppiWeightNoLep": {
+            "global": {
+                "mean": 0,
+                "std": 1,
+                "lim_min": "-inf",
+                "lim_max": "inf"
+            }
+        },
+        "pfCand_lostInnerHits": {
+            "global": {
+                "mean": 2.0,
+                "std": 3.0,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_nPixelHits": {
+            "global": {
+                "mean": 5.0,
+                "std": 5.0,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_nHits": {
+            "global": {
+                "mean": 15.0,
+                "std": 15.0,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_hasTrackDetails": {
+            "global": {
+                "mean": 0,
+                "std": 1,
+                "lim_min": "-inf",
+                "lim_max": "inf"
+            }
+        },
+        "pfCand_dxy": {
+            "global": {
+                "mean": -0.01612,
+                "std": 2.337,
+                "lim_min": -5,
+                "lim_max": 5
+            }
+        },
+        "pfCand_dxy_sig": {
+            "global": {
+                "mean": -0.4204,
+                "std": 100.6,
+                "lim_min": -5,
+                "lim_max": 5
+            }
+        },
+        "pfCand_dz": {
+            "global": {
+                "mean": -0.01005,
+                "std": 7.345,
+                "lim_min": -5,
+                "lim_max": 5
+            }
+        },
+        "pfCand_dz_sig": {
+            "global": {
+                "mean": -1.098,
+                "std": 544.2,
+                "lim_min": -5,
+                "lim_max": 5
+            }
+        },
+        "pfCand_chi2_ndof": {
+            "global": {
+                "mean": 0.784,
+                "std": 3.698,
+                "lim_min": -5,
+                "lim_max": 5
+            }
+        },
+        "pfCand_ndof": {
+            "global": {
+                "mean": 13.67,
+                "std": 6.532,
+                "lim_min": -5,
+                "lim_max": 5
+            }
+        },
+        "pfCand_caloFraction": {
+            "global": {
+                "mean": 1.0,
+                "std": 1.0,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_hcalFraction": {
+            "global": {
+                "mean": 0.5,
+                "std": 0.5,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_rawCaloFraction": {
+            "global": {
+                "mean": 1.3,
+                "std": 1.3,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_rawHcalFraction": {
+            "global": {
+                "mean": 0.5,
+                "std": 0.5,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_particleType": {
+            "global": {
+                "mean": 4.5,
+                "std": 4.5,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_pvAssociationQuality": {
+            "global": {
+                "mean": 4.5,
+                "std": 4.5,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_fromPV": {
+            "global": {
+                "mean": 2.5,
+                "std": 2.5,
+                "lim_min": -1.0,
+                "lim_max": 1.0
+            }
+        },
+        "pfCand_deta": {
+            "global": {
+                "mean": 0,
+                "std": 1,
+                "lim_min": "-inf",
+                "lim_max": "inf"
+            }
+        },
+        "pfCand_dphi": {
+            "global": {
+                "mean": 0,
+                "std": 1,
+                "lim_min": "-inf",
+                "lim_max": "inf"
+            }
+        }
+    }
+}

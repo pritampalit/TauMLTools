@@ -1,0 +1,179 @@
+#!/bin/bash
+
+# if (( $# < 1 )) ; then
+#     cat << EOF
+# Setup environment for TauMLTools
+# Usage: source env.sh mode [mode_arg_1] [mode_arg_2] ...
+# Supported modes: run2 run3 phase2_112X phase2_113X lcg conda hlt
+# Mode-specific arguments:
+# conda
+#   --update [env.yaml]  updates environment from env.yaml (default: tau-ml-env.yaml)
+# EOF
+#     return 1
+# fi
+
+run_cmd() {
+  "$@"
+  local RESULT=$?
+  if (( $RESULT != 0 )); then
+    echo "Error while running '$@'"
+    kill -INT $$
+  fi
+}
+
+do_install_cmssw() {
+  local this_file="$( [ ! -z "$ZSH_VERSION" ] && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
+  local this_dir="$( cd "$( dirname "$this_file" )" && pwd )"
+
+  export SCRAM_ARCH=$1
+  local CMSSW_VER=$2
+  local os_version=$3
+  if ! [ -f "$this_dir/soft/CentOS$os_version/$CMSSW_VER/.installed" ]; then
+    run_cmd mkdir -p "$this_dir/soft/CentOS$os_version"
+    run_cmd cd "$this_dir/soft/CentOS$os_version"
+    run_cmd source /cvmfs/cms.cern.ch/cmsset_default.sh
+    if [ -d $CMSSW_VER ]; then
+      echo "Removing incomplete $CMSSW_VER installation..."
+      run_cmd rm -rf $CMSSW_VER
+    fi
+    echo "Creating $CMSSW_VER area for CentOS$os_version in $PWD ..."
+    run_cmd scramv1 project CMSSW $CMSSW_VER
+    run_cmd cd $CMSSW_VER/src
+    run_cmd eval `scramv1 runtime -sh`
+    run_cmd git cms-init
+    run_cmd git cms-addpkg L1Trigger/L1TCalorimeter
+    run_cmd git clone git@github.com:cms-l1t-offline/L1Trigger-L1TCalorimeter.git L1Trigger/L1TCalorimeter/data
+    run_cmd cp $this_dir/Production/python/hlt_configs/caloParams_2023_v0_2_cfi.py L1Trigger/L1TCalorimeter/python
+    run_cmd mkdir TauMLTools
+    run_cmd cd TauMLTools
+    run_cmd ln -s "$this_dir/Analysis" Analysis
+    run_cmd ln -s "$this_dir/Core" Core
+    run_cmd ln -s "$this_dir/Production" Production
+    run_cmd ln -s "$this_dir/Preprocessing" Preprocessing
+    run_cmd scram b -j8
+    run_cmd touch "$this_dir/soft/CentOS$os_version/$CMSSW_VER/.installed"
+  fi
+}
+
+install_cmssw() {
+  local this_file="$( [ ! -z "$ZSH_VERSION" ] && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
+  local this_dir="$( cd "$( dirname "$this_file" )" && pwd )"
+  local scram_arch=$1
+  local cmssw_version=$2
+  local os_version=$3
+  local target_os_version=$4
+  if [[ $os_version == $target_os_version ]]; then
+    local env_cmd=""
+    local env_cmd_args=""
+  else
+    if [[ $target_os_version < 8 ]] ; then
+      local os_type="cc"
+    else
+      local os_type="el"
+    fi
+    local env_cmd="cmssw-$os_type$target_os_version"
+    if ! command -v $env_cmd &> /dev/null; then
+      echo "Unable to do a cross-platform installation for $cmssw_version SCRAM_ARCH=$scram_arch. $env_cmd is not available."
+      return 1
+    fi
+    local env_cmd_args="--command-to-run"
+  fi
+  if ! [ -f "$this_dir/soft/CentOS$target_os_version/$CMSSW_VER/.installed" ]; then
+    run_cmd $env_cmd $env_cmd_args /usr/bin/env -i HOME=$HOME bash "$this_file" install_cmssw $scram_arch $cmssw_version $target_os_version
+  fi
+}
+
+action() {
+  local this_file="$( [ ! -z "$ZSH_VERSION" ] && echo "${(%):-%x}" || echo "${BASH_SOURCE[0]}" )"
+  local this_dir="$( cd "$( dirname "$this_file" )" && pwd )"
+  local MODE=$1
+
+  export ANALYSIS_PATH="$this_dir"
+  export ANALYSIS_DATA_PATH="$ANALYSIS_PATH/data"
+  export X509_USER_PROXY="$ANALYSIS_DATA_PATH/voms.proxy"
+
+  export PYTHONPATH="$this_dir:$PYTHONPATH"
+  export LAW_HOME="$this_dir/.law"
+  export LAW_CONFIG_FILE="$this_dir/LawWorkflows/law.cfg"
+
+  run_cmd mkdir -p "$ANALYSIS_DATA_PATH"
+
+  local os_version=$(cat /etc/os-release | grep VERSION_ID | sed -E 's/VERSION_ID="([0-9]+).*"/\1/')
+  local default_cmssw_ver=CMSSW_13_0_7
+  export DEFAULT_CMSSW_BASE="$ANALYSIS_PATH/soft/CentOS$os_version/$default_cmssw_ver"
+
+  if [[ $MODE = *"cmssw"* ]]; then
+    run_cmd install_cmssw slc7_amd64_gcc11 $default_cmssw_ver $os_version 7
+    run_cmd install_cmssw el8_amd64_gcc11 $default_cmssw_ver $os_version 8
+    run_cmd install_cmssw el9_amd64_gcc10 $default_cmssw_ver $os_version 9
+
+    #for phase2
+    #run_cmd install_cmssw slc7_amd64_gcc900 CMSSW_11_2_5 $os_version 7
+    #run_cmd install_cmssw slc7_amd64_gcc900 CMSSW_11_3_0 $os_version 7
+
+    alias cmsEnv="env -i HOME=$HOME ANALYSIS_PATH=$ANALYSIS_PATH ANALYSIS_DATA_PATH=$ANALYSIS_DATA_PATH X509_USER_PROXY=$X509_USER_PROXY DEFAULT_CMSSW_BASE=$DEFAULT_CMSSW_BASE $ANALYSIS_PATH/RunKit/cmsEnv.sh"
+    #alias cmsEnv11_2="env -i HOME=$HOME ANALYSIS_PATH=$ANALYSIS_PATH ANALYSIS_DATA_PATH=$ANALYSIS_DATA_PATH X509_USER_PROXY=$X509_USER_PROXY DEFAULT_CMSSW_BASE=$ANALYSIS_PATH/soft/CentOS$os_version/CMSSW_11_2_5 $ANALYSIS_PATH/RunKit/cmsEnv.sh"
+    #alias cmsEnv11_3="env -i HOME=$HOME ANALYSIS_PATH=$ANALYSIS_PATH ANALYSIS_DATA_PATH=$ANALYSIS_DATA_PATH X509_USER_PROXY=$X509_USER_PROXY DEFAULT_CMSSW_BASE=$ANALYSIS_PATH/soft/CentOS$os_version/CMSSW_11_3_0 $ANALYSIS_PATH/RunKit/cmsEnv.sh"
+  fi
+
+  if [[ $MODE == *"conda"* ]]; then
+      # Set the correct conda path for the root6_mamba_env environment
+      local CONDA="/afs/cern.ch/work/p/ppalit/public/anaconda3/bin/conda"
+      
+      # Check if conda is available
+      if [[ $CONDA = "" || $CONDA = "/usr/bin/conda" ]]; then
+          echo "Conda executable not found or not set up correctly."
+          exit 1
+      fi
+      
+      # Activate the existing conda environment
+    local ENV_PATH="/afs/cern.ch/work/p/ppalit/public/anaconda3/envs/root6_mamba_env"
+    
+    # Check if the environment exists before trying to activate it
+    if [ -d "$ENV_PATH" ]; then
+        echo "Activating the environment at $ENV_PATH"
+        run_cmd conda activate $ENV_PATH
+    else
+        echo "Conda environment '$ENV_PATH' not found. Exiting..."
+        exit 1
+    fi
+    
+    # Do not attempt to create or update the environment, just activate it
+    ARG="$2"
+    if [[ $ARG = "--update" ]]; then
+        echo "Skipping environment update as requested."
+    fi
+    
+    local TAU_ML_LIB_DIR=$(cd $(dirname $(which python))/..; pwd)
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TAU_ML_LIB_DIR/lib
+  else
+      source /cvmfs/sft.cern.ch/lcg/views/setupViews.sh LCG_102 x86_64-centos${os_version}-gcc11-opt
+      for law_location in /afs/cern.ch/user/m/mrieger/public/law_sw/setup.sh /afs/desy.de/user/r/riegerma/public/law_sw/setup.sh; do
+          if [ -f $law_location ]; then
+              source $law_location
+              break
+          fi
+      done
+  fi
+  
+  if [ ! -z $ZSH_VERSION ]; then
+      autoload bashcompinit
+      bashcompinit
+  fi
+  source "$( law completion )"
+  
+  which eosfusebind &> /dev/null
+  if [ $? -eq 0 ]; then
+      eosfusebind -g
+  fi
+  
+  alias run_cxx="python $ANALYSIS_PATH/Core/python/run_cxx.py"
+  
+  echo "TauMLTools environment is successfully loaded."
+}
+
+if [ "X$1" = "Xinstall_cmssw" ]; then
+  do_install_cmssw "${@:2}"
+else
+  action "$@"
+fi
